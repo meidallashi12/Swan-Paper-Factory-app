@@ -1,13 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { useStore } from "@/lib/spf-store";
+import { useStore, QCResult } from "@/lib/spf-store";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,47 +18,65 @@ export const Route = createFileRoute("/quality")({ component: Quality });
 function Quality() {
   const { state, setState, addActivity } = useStore();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ batchId: "", inspector: "", result: "Passed" as "Passed"|"Failed"|"Needs Review", defects: "" });
+  const [form, setForm] = useState({ BatchID: "", InspectorID: "E-04", Result: "Passed" as QCResult, DefectNotes: "" });
+
+  const inspectors = state.employees.filter((e) => e.Role === "Quality Inspector");
+  const inspectorName = (id: string) => state.employees.find((e) => e.EmployeeID === id)?.FullName ?? id;
 
   const submit = () => {
-    if (!form.batchId || !form.inspector) { toast.error("Batch and inspector required"); return; }
-    const id = "QI-" + (state.inspections.length + 1).toString().padStart(2, "0");
+    if (!form.BatchID) { toast.error("Pick a batch"); return; }
+    const id = "QC-" + (state.qcs.length + 1).toString().padStart(2, "0");
+    const batch = state.batches.find((b) => b.BatchID === form.BatchID);
     setState((s) => ({
       ...s,
-      inspections: [...s.inspections, { id, ...form, date: new Date().toISOString().slice(0, 10) }],
-      batches: s.batches.map(b => b.id === form.batchId
-        ? { ...b, status: form.result === "Failed" ? "Scrapped" : form.result === "Needs Review" ? "Needs Review" : b.status }
-        : b),
+      qcs: [...s.qcs, {
+        QualityCheckID: id, BatchID: form.BatchID,
+        CheckedAt: new Date().toISOString().slice(0, 10),
+        DefectNotes: form.DefectNotes, Result: form.Result,
+      }],
+      // failed inspections roll up to the parent production order
+      prodOrders: batch ? s.prodOrders.map((p) =>
+        p.ProdOrderID === batch.ProdOrderID
+          ? { ...p, Status: form.Result === "Failed" ? "Scrapped" : form.Result === "Needs Review" ? "Needs Review" : p.Status }
+          : p,
+      ) : s.prodOrders,
     }));
-    addActivity(`Inspection ${id} on ${form.batchId} → ${form.result}`);
-    if (form.result === "Failed") toast.error(`Batch ${form.batchId} scrapped`);
+    addActivity(`QC ${id} on ${form.BatchID} → ${form.Result} (by ${inspectorName(form.InspectorID)})`);
+    if (form.Result === "Failed") toast.error(`Parent order scrapped`);
     else toast.success(`Inspection ${id} recorded`);
     setOpen(false);
-    setForm({ batchId: "", inspector: "", result: "Passed", defects: "" });
+    setForm({ BatchID: "", InspectorID: "E-04", Result: "Passed", DefectNotes: "" });
   };
 
   return (
     <div>
-      <PageHeader title="Quality Inspection" description="Inspect production batches and record findings" actions={
+      <PageHeader title="Quality Inspection" description="QUALITYCHECK records against PRODUCTIONBATCH" actions={
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-1" /> New Inspection</Button></DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>New Quality Inspection</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>New Quality Check</DialogTitle></DialogHeader>
             <div className="grid grid-cols-2 gap-3 py-2">
               <div className="col-span-2"><Label>Batch</Label>
-                <Select value={form.batchId} onValueChange={(v) => setForm({ ...form, batchId: v })}>
+                <Select value={form.BatchID} onValueChange={(v) => setForm({ ...form, BatchID: v })}>
                   <SelectTrigger><SelectValue placeholder="Select batch" /></SelectTrigger>
-                  <SelectContent>{state.batches.map(b => <SelectItem key={b.id} value={b.id}>{b.id} — {b.product}</SelectItem>)}</SelectContent>
+                  <SelectContent>{state.batches.map((b) => <SelectItem key={b.BatchID} value={b.BatchID}>{b.BatchID} ({b.ProdOrderID})</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label>Inspector</Label><Input value={form.inspector} onChange={(e) => setForm({ ...form, inspector: e.target.value })} /></div>
-              <div><Label>Result</Label>
-                <Select value={form.result} onValueChange={(v) => setForm({ ...form, result: v as any })}>
+              <div><Label>Inspector</Label>
+                <Select value={form.InspectorID} onValueChange={(v) => setForm({ ...form, InspectorID: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{["Passed","Failed","Needs Review"].map(s=><SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                  <SelectContent>{inspectors.map((i) => <SelectItem key={i.EmployeeID} value={i.EmployeeID}>{i.FullName}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="col-span-2"><Label>Defect notes</Label><Textarea value={form.defects} onChange={(e) => setForm({ ...form, defects: e.target.value })} /></div>
+              <div><Label>Result</Label>
+                <Select value={form.Result} onValueChange={(v) => setForm({ ...form, Result: v as QCResult })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{["Passed", "Failed", "Needs Review"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-2"><Label>Defect Notes</Label>
+                <Textarea value={form.DefectNotes} onChange={(e) => setForm({ ...form, DefectNotes: e.target.value })} />
+              </div>
             </div>
             <DialogFooter><Button onClick={submit}>Save</Button></DialogFooter>
           </DialogContent>
@@ -70,18 +87,17 @@ function Quality() {
         <CardContent className="p-0">
           <Table>
             <TableHeader><TableRow>
-              <TableHead>QI</TableHead><TableHead>Batch</TableHead><TableHead>Inspector</TableHead>
-              <TableHead>Result</TableHead><TableHead>Defects</TableHead><TableHead>Date</TableHead>
+              <TableHead>QualityCheckID</TableHead><TableHead>BatchID</TableHead>
+              <TableHead>Result</TableHead><TableHead>Defects</TableHead><TableHead>CheckedAt</TableHead>
             </TableRow></TableHeader>
             <TableBody>
-              {state.inspections.map(i => (
-                <TableRow key={i.id}>
-                  <TableCell className="font-medium">{i.id}</TableCell>
-                  <TableCell>{i.batchId}</TableCell>
-                  <TableCell>{i.inspector}</TableCell>
-                  <TableCell><StatusBadge status={i.result} /></TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-[260px]">{i.defects || "—"}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{i.date}</TableCell>
+              {state.qcs.map((q) => (
+                <TableRow key={q.QualityCheckID}>
+                  <TableCell className="font-medium">{q.QualityCheckID}</TableCell>
+                  <TableCell>{q.BatchID}</TableCell>
+                  <TableCell><StatusBadge status={q.Result} /></TableCell>
+                  <TableCell className="text-sm text-muted-foreground max-w-[260px]">{q.DefectNotes || "—"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{q.CheckedAt}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

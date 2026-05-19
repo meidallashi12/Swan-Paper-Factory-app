@@ -7,9 +7,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,79 +21,115 @@ function Deliveries() {
   const [issueOpen, setIssueOpen] = useState<string | null>(null);
   const [issue, setIssue] = useState("");
 
-  const so = (id: string) => state.sos.find(s => s.id === id);
-  const client = (sid: string) => {
-    const s = so(sid); if (!s) return "—";
-    return state.clients.find(c => c.id === s.clientId)?.name ?? "—";
+  const so = (id: string) => state.salesOrders.find((s) => s.SalesOrderID === id);
+  const customerForSO = (sid: string) => {
+    const o = so(sid); if (!o) return null;
+    return state.customers.find((c) => c.CustomerID === o.CustomerID) ?? null;
   };
-  const address = (sid: string) => {
-    const s = so(sid); if (!s) return "—";
-    return state.clients.find(c => c.id === s.clientId)?.address ?? "—";
+  const loadForSO = (sid: string) => {
+    const lines = state.containedIn.filter((c) => c.SalesOrderID === sid);
+    return lines.map((ln) => `${ln.Quantity} × ${state.products.find((p) => p.ProductID === ln.ProductID)?.Name ?? ln.ProductID}`).join(", ") || "—";
   };
-  const load = (sid: string) => {
-    const s = so(sid); if (!s) return "—";
-    return `${s.quantity} × ${state.inventory.find(i => i.id === s.itemId)?.name ?? s.itemId}`;
-  };
+  const driverName = (id: string) => state.drivers.find((d) => d.DriverID === id)?.FullName ?? id;
 
-  const setStatus = (id: string, status: DeliveryStatus) => {
+  const setStatus = (id: string, DeliveryStatus: DeliveryStatus) => {
     setState((st) => ({
       ...st,
-      deliveries: st.deliveries.map(d => d.id === id ? { ...d, status } : d),
-      sos: status === "Delivered" ? st.sos.map(s => {
-        const d = st.deliveries.find(x => x.id === id);
-        return d && s.id === d.salesOrderId ? { ...s, status: "Delivered" as any } : s;
-      }) : st.sos,
+      deliveries: st.deliveries.map((d) => {
+        if (d.DeliveryID !== id) return d;
+        const today = new Date().toISOString().slice(0, 10);
+        if (DeliveryStatus === "Dispatched") return { ...d, DeliveryStatus, DispatchedDate: d.DispatchedDate || today };
+        if (DeliveryStatus === "Delivered") return { ...d, DeliveryStatus, DeliveredDate: today };
+        return { ...d, DeliveryStatus };
+      }),
+      salesOrders: DeliveryStatus === "Delivered" ? st.salesOrders.map((s) => {
+        const d = st.deliveries.find((x) => x.DeliveryID === id);
+        return d && s.SalesOrderID === d.SalesOrderID ? { ...s, Status: "Delivered" as any } : s;
+      }) : st.salesOrders,
     }));
-    addActivity(`Delivery ${id} → ${status}`);
-    toast.success(`${id} → ${status}`);
+    addActivity(`Delivery ${id} → ${DeliveryStatus}`);
+    toast.success(`${id} → ${DeliveryStatus}`);
   };
 
-  const updateDriver = (id: string, driver: string) => {
-    setState((s) => ({ ...s, deliveries: s.deliveries.map(d => d.id === id ? { ...d, driver } : d) }));
+  const updateDriver = (id: string, DriverID: string) => {
+    setState((s) => ({ ...s, deliveries: s.deliveries.map((d) => d.DeliveryID === id ? { ...d, DriverID } : d) }));
+  };
+  const updatePlate = (id: string, VeichlePlate: string) => {
+    setState((s) => ({ ...s, deliveries: s.deliveries.map((d) => d.DeliveryID === id ? { ...d, VeichlePlate } : d) }));
   };
 
   const logIssue = () => {
     if (!issueOpen) return;
-    setState((s) => ({ ...s, deliveries: s.deliveries.map(d => d.id === issueOpen ? { ...d, status: "Issue", issueNotes: issue } : d) }));
-    addActivity(`Delivery ${issueOpen} issue logged: ${issue}`);
+    setState((s) => ({ ...s, deliveries: s.deliveries.map((d) => d.DeliveryID === issueOpen ? { ...d, DeliveryStatus: "Issue", IssueNotes: issue } : d) }));
+    addActivity(`Delivery ${issueOpen} issue: ${issue}`);
     toast.error(`Issue logged on ${issueOpen}`);
     setIssueOpen(null); setIssue("");
   };
 
   return (
     <div>
-      <PageHeader title="Delivery Management" description="Daily delivery manifests and driver assignments" />
+      <PageHeader title="Delivery Management" description="Daily delivery manifests, driver assignments, status updates" />
+
+      <Card className="mb-6">
+        <CardHeader><CardTitle className="text-base">Drivers</CardTitle></CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader><TableRow>
+              <TableHead>DriverID</TableHead><TableHead>Name</TableHead><TableHead>License</TableHead><TableHead>Phone</TableHead>
+            </TableRow></TableHeader>
+            <TableBody>
+              {state.drivers.map((d) => (
+                <TableRow key={d.DriverID}>
+                  <TableCell className="font-mono text-xs">{d.DriverID}</TableCell>
+                  <TableCell className="font-medium">{d.FullName}</TableCell>
+                  <TableCell>{d.LicenseNumber}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{d.Phone}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Today's Deliveries</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">Deliveries</CardTitle></CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Delivery</TableHead><TableHead>Client</TableHead><TableHead>Address</TableHead>
-                <TableHead>Load</TableHead><TableHead>Driver</TableHead><TableHead>Status</TableHead>
-                <TableHead>Notes</TableHead><TableHead className="text-right">Actions</TableHead>
+                <TableHead>DeliveryID</TableHead><TableHead>Customer</TableHead><TableHead>Address</TableHead>
+                <TableHead>Load</TableHead><TableHead>Driver</TableHead><TableHead>Vehicle</TableHead>
+                <TableHead>Status</TableHead><TableHead>Notes</TableHead><TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {state.deliveries.map(d => (
-                <TableRow key={d.id}>
-                  <TableCell className="font-medium">{d.id}</TableCell>
-                  <TableCell>{client(d.salesOrderId)}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-[180px]">{address(d.salesOrderId)}</TableCell>
-                  <TableCell className="text-sm">{load(d.salesOrderId)}</TableCell>
-                  <TableCell><Input value={d.driver} onChange={(e) => updateDriver(d.id, e.target.value)} className="h-8 w-32" /></TableCell>
-                  <TableCell><StatusBadge status={d.status} /></TableCell>
-                  <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">{d.issueNotes || "—"}</TableCell>
-                  <TableCell className="text-right space-x-1">
-                    {d.status === "Scheduled" && <Button size="sm" variant="outline" onClick={() => setStatus(d.id, "In Transit")}>Dispatch</Button>}
-                    {d.status === "In Transit" && <Button size="sm" onClick={() => setStatus(d.id, "Delivered")}><Check className="h-3 w-3 mr-1" />Confirm</Button>}
-                    {d.status !== "Delivered" && d.status !== "Issue" && (
-                      <Button size="sm" variant="ghost" onClick={() => setIssueOpen(d.id)}><AlertTriangle className="h-3 w-3 mr-1" />Issue</Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {state.deliveries.map((d) => {
+                const cust = customerForSO(d.SalesOrderID);
+                return (
+                  <TableRow key={d.DeliveryID}>
+                    <TableCell className="font-medium">{d.DeliveryID}</TableCell>
+                    <TableCell>{cust?.Name ?? "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground max-w-[180px]">{cust?.Attribute ?? "—"}</TableCell>
+                    <TableCell className="text-sm">{loadForSO(d.SalesOrderID)}</TableCell>
+                    <TableCell>
+                      <Select value={d.DriverID} onValueChange={(v) => updateDriver(d.DeliveryID, v)}>
+                        <SelectTrigger className="h-8 w-32 text-xs"><SelectValue>{driverName(d.DriverID)}</SelectValue></SelectTrigger>
+                        <SelectContent>{state.drivers.map((dr) => <SelectItem key={dr.DriverID} value={dr.DriverID}>{dr.FullName}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell><Input value={d.VeichlePlate} onChange={(e) => updatePlate(d.DeliveryID, e.target.value)} className="h-8 w-24" /></TableCell>
+                    <TableCell><StatusBadge status={d.DeliveryStatus} /></TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">{d.IssueNotes || "—"}</TableCell>
+                    <TableCell className="text-right space-x-1">
+                      {d.DeliveryStatus === "Scheduled" && <Button size="sm" variant="outline" onClick={() => setStatus(d.DeliveryID, "Dispatched")}>Dispatch</Button>}
+                      {d.DeliveryStatus === "Dispatched" && <Button size="sm" onClick={() => setStatus(d.DeliveryID, "Delivered")}><Check className="h-3 w-3 mr-1" />Confirm</Button>}
+                      {d.DeliveryStatus !== "Delivered" && d.DeliveryStatus !== "Issue" && (
+                        <Button size="sm" variant="ghost" onClick={() => setIssueOpen(d.DeliveryID)}><AlertTriangle className="h-3 w-3 mr-1" />Issue</Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>

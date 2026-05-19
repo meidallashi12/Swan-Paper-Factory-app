@@ -17,7 +17,7 @@ const items = [
   { title: "Procurement", url: "/procurement", icon: ShoppingCart },
   { title: "Sales Orders", url: "/sales", icon: ClipboardList },
   { title: "Deliveries", url: "/deliveries", icon: Truck },
-  { title: "Machines", url: "/machines", icon: Wrench },
+  { title: "Shifts", url: "/machines", icon: Wrench },
   { title: "Quality", url: "/quality", icon: ShieldCheck },
   { title: "Workforce", url: "/workforce", icon: Users },
   { title: "Reports", url: "/reports", icon: BarChart3 },
