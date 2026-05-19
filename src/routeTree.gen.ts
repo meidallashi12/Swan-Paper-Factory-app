@@ -9,8 +9,62 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WorkforceRouteImport } from './routes/workforce'
+import { Route as SalesRouteImport } from './routes/sales'
+import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as QualityRouteImport } from './routes/quality'
+import { Route as ProductionRouteImport } from './routes/production'
+import { Route as ProcurementRouteImport } from './routes/procurement'
+import { Route as MachinesRouteImport } from './routes/machines'
+import { Route as InventoryRouteImport } from './routes/inventory'
+import { Route as DeliveriesRouteImport } from './routes/deliveries'
 import { Route as IndexRouteImport } from './routes/index'
 
+const WorkforceRoute = WorkforceRouteImport.update({
+  id: '/workforce',
+  path: '/workforce',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SalesRoute = SalesRouteImport.update({
+  id: '/sales',
+  path: '/sales',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QualityRoute = QualityRouteImport.update({
+  id: '/quality',
+  path: '/quality',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProductionRoute = ProductionRouteImport.update({
+  id: '/production',
+  path: '/production',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProcurementRoute = ProcurementRouteImport.update({
+  id: '/procurement',
+  path: '/procurement',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MachinesRoute = MachinesRouteImport.update({
+  id: '/machines',
+  path: '/machines',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InventoryRoute = InventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeliveriesRoute = DeliveriesRouteImport.update({
+  id: '/deliveries',
+  path: '/deliveries',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +73,158 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/deliveries': typeof DeliveriesRoute
+  '/inventory': typeof InventoryRoute
+  '/machines': typeof MachinesRoute
+  '/procurement': typeof ProcurementRoute
+  '/production': typeof ProductionRoute
+  '/quality': typeof QualityRoute
+  '/reports': typeof ReportsRoute
+  '/sales': typeof SalesRoute
+  '/workforce': typeof WorkforceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/deliveries': typeof DeliveriesRoute
+  '/inventory': typeof InventoryRoute
+  '/machines': typeof MachinesRoute
+  '/procurement': typeof ProcurementRoute
+  '/production': typeof ProductionRoute
+  '/quality': typeof QualityRoute
+  '/reports': typeof ReportsRoute
+  '/sales': typeof SalesRoute
+  '/workforce': typeof WorkforceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/deliveries': typeof DeliveriesRoute
+  '/inventory': typeof InventoryRoute
+  '/machines': typeof MachinesRoute
+  '/procurement': typeof ProcurementRoute
+  '/production': typeof ProductionRoute
+  '/quality': typeof QualityRoute
+  '/reports': typeof ReportsRoute
+  '/sales': typeof SalesRoute
+  '/workforce': typeof WorkforceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/deliveries'
+    | '/inventory'
+    | '/machines'
+    | '/procurement'
+    | '/production'
+    | '/quality'
+    | '/reports'
+    | '/sales'
+    | '/workforce'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/deliveries'
+    | '/inventory'
+    | '/machines'
+    | '/procurement'
+    | '/production'
+    | '/quality'
+    | '/reports'
+    | '/sales'
+    | '/workforce'
+  id:
+    | '__root__'
+    | '/'
+    | '/deliveries'
+    | '/inventory'
+    | '/machines'
+    | '/procurement'
+    | '/production'
+    | '/quality'
+    | '/reports'
+    | '/sales'
+    | '/workforce'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DeliveriesRoute: typeof DeliveriesRoute
+  InventoryRoute: typeof InventoryRoute
+  MachinesRoute: typeof MachinesRoute
+  ProcurementRoute: typeof ProcurementRoute
+  ProductionRoute: typeof ProductionRoute
+  QualityRoute: typeof QualityRoute
+  ReportsRoute: typeof ReportsRoute
+  SalesRoute: typeof SalesRoute
+  WorkforceRoute: typeof WorkforceRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/workforce': {
+      id: '/workforce'
+      path: '/workforce'
+      fullPath: '/workforce'
+      preLoaderRoute: typeof WorkforceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sales': {
+      id: '/sales'
+      path: '/sales'
+      fullPath: '/sales'
+      preLoaderRoute: typeof SalesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/quality': {
+      id: '/quality'
+      path: '/quality'
+      fullPath: '/quality'
+      preLoaderRoute: typeof QualityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/production': {
+      id: '/production'
+      path: '/production'
+      fullPath: '/production'
+      preLoaderRoute: typeof ProductionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/procurement': {
+      id: '/procurement'
+      path: '/procurement'
+      fullPath: '/procurement'
+      preLoaderRoute: typeof ProcurementRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/machines': {
+      id: '/machines'
+      path: '/machines'
+      fullPath: '/machines'
+      preLoaderRoute: typeof MachinesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inventory': {
+      id: '/inventory'
+      path: '/inventory'
+      fullPath: '/inventory'
+      preLoaderRoute: typeof InventoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/deliveries': {
+      id: '/deliveries'
+      path: '/deliveries'
+      fullPath: '/deliveries'
+      preLoaderRoute: typeof DeliveriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,17 +237,16 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DeliveriesRoute: DeliveriesRoute,
+  InventoryRoute: InventoryRoute,
+  MachinesRoute: MachinesRoute,
+  ProcurementRoute: ProcurementRoute,
+  ProductionRoute: ProductionRoute,
+  QualityRoute: QualityRoute,
+  ReportsRoute: ReportsRoute,
+  SalesRoute: SalesRoute,
+  WorkforceRoute: WorkforceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
