@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WorkforceRouteImport } from './routes/workforce'
 import { Route as SalesRouteImport } from './routes/sales'
 import { Route as QualityRouteImport } from './routes/quality'
 import { Route as ProductionRouteImport } from './routes/production'
@@ -18,6 +19,11 @@ import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as DeliveriesRouteImport } from './routes/deliveries'
 import { Route as IndexRouteImport } from './routes/index'
 
+const WorkforceRoute = WorkforceRouteImport.update({
+  id: '/workforce',
+  path: '/workforce',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SalesRoute = SalesRouteImport.update({
   id: '/sales',
   path: '/sales',
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/production': typeof ProductionRoute
   '/quality': typeof QualityRoute
   '/sales': typeof SalesRoute
+  '/workforce': typeof WorkforceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/production': typeof ProductionRoute
   '/quality': typeof QualityRoute
   '/sales': typeof SalesRoute
+  '/workforce': typeof WorkforceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/production': typeof ProductionRoute
   '/quality': typeof QualityRoute
   '/sales': typeof SalesRoute
+  '/workforce': typeof WorkforceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/production'
     | '/quality'
     | '/sales'
+    | '/workforce'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/production'
     | '/quality'
     | '/sales'
+    | '/workforce'
   id:
     | '__root__'
     | '/'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/production'
     | '/quality'
     | '/sales'
+    | '/workforce'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,10 +144,18 @@ export interface RootRouteChildren {
   ProductionRoute: typeof ProductionRoute
   QualityRoute: typeof QualityRoute
   SalesRoute: typeof SalesRoute
+  WorkforceRoute: typeof WorkforceRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/workforce': {
+      id: '/workforce'
+      path: '/workforce'
+      fullPath: '/workforce'
+      preLoaderRoute: typeof WorkforceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sales': {
       id: '/sales'
       path: '/sales'
@@ -204,6 +224,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProductionRoute: ProductionRoute,
   QualityRoute: QualityRoute,
   SalesRoute: SalesRoute,
+  WorkforceRoute: WorkforceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
