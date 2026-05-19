@@ -1,10 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useStore, invStatus } from "@/lib/spf-store";
+import { useStore, rmStockState, productStock } from "@/lib/spf-store";
 import { PageHeader } from "@/components/page-header";
-import {
-  Factory, AlertTriangle, ClipboardList, ShoppingCart, Wrench, Truck,
-} from "lucide-react";
+import { Factory, AlertTriangle, ClipboardList, PackageCheck, Truck, Users } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, CartesianGrid, Legend,
 } from "recharts";
@@ -35,36 +33,46 @@ function Stat({ icon: Icon, label, value, tone = "default" }: any) {
 
 function Dashboard() {
   const { state } = useStore();
-  const activeBatches = state.batches.filter((b) => b.status === "In Progress" || b.status === "Planned").length;
-  const lowStock = state.inventory.filter((i) => invStatus(i) !== "Normal").length;
-  const pendingSO = state.sos.filter((s) => s.status === "Pending" || s.status === "Confirmed").length;
-  const openPO = state.pos.filter((p) => p.status !== "Received").length;
-  const downMachines = state.machines.filter((m) => m.status === "Down" || m.status === "Under Maintenance").length;
-  const todayDeliveries = state.deliveries.filter((d) => d.status !== "Delivered").length;
 
-  const productionData = state.batches.map((b) => ({ name: b.id, output: b.outputQty }));
-  const invData = state.inventory.slice(0, 6).map((i) => ({ name: i.name.split(" ")[0], qty: i.quantity, min: i.minStock }));
+  const activeOrders = state.prodOrders.filter((p) => p.Status === "In Progress" || p.Status === "Planned").length;
+  const lowStockRM = state.inventory.filter((ir) => {
+    const m = state.materials.find((mm) => mm.MaterialID === ir.MaterialID);
+    return m && rmStockState(ir.QtyOnHand, m.ReorderThreshhold) !== "Normal";
+  }).length;
+  const pendingSO = state.salesOrders.filter((s) => s.Status === "Pending" || s.Status === "Confirmed").length;
+  const completedBatchesToday = state.batches.length;
+  const todayDeliveries = state.deliveries.filter((d) => d.DeliveryStatus !== "Delivered").length;
+  const totalEmployees = state.employees.length;
+
+  const productionData = state.batches.map((b) => ({ name: b.BatchID, output: b.QtyProduced, waste: b.WasteQty }));
+  const invData = state.inventory.map((ir) => {
+    const m = state.materials.find((mm) => mm.MaterialID === ir.MaterialID);
+    return { name: m?.Name.split(" ")[0] ?? ir.MaterialID, qty: ir.QtyOnHand, reorder: m?.ReorderThreshhold ?? 0 };
+  });
   const deliveryData = [
     { day: "Mon", onTime: 12, late: 1 }, { day: "Tue", onTime: 14, late: 2 },
     { day: "Wed", onTime: 11, late: 0 }, { day: "Thu", onTime: 15, late: 1 },
     { day: "Fri", onTime: 13, late: 3 }, { day: "Sat", onTime: 9, late: 1 },
   ];
 
+  // finished goods snapshot for stat tile
+  const fgStock = state.products.reduce((acc, p) => acc + Math.max(0, productStock(state, p.ProductID)), 0);
+
   return (
     <div>
       <PageHeader title="Operations Dashboard" description="Live snapshot of factory operations" />
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-        <Stat icon={Factory} label="Active Batches" value={activeBatches} />
-        <Stat icon={AlertTriangle} label="Low Stock Items" value={lowStock} tone={lowStock ? "warning" : "success"} />
+        <Stat icon={Factory} label="Active Prod Orders" value={activeOrders} />
+        <Stat icon={AlertTriangle} label="Low/Out Materials" value={lowStockRM} tone={lowStockRM ? "warning" : "success"} />
         <Stat icon={ClipboardList} label="Pending Sales" value={pendingSO} />
-        <Stat icon={ShoppingCart} label="Open POs" value={openPO} />
-        <Stat icon={Wrench} label="Machine Alerts" value={downMachines} tone={downMachines ? "danger" : "success"} />
-        <Stat icon={Truck} label="Today's Deliveries" value={todayDeliveries} />
+        <Stat icon={PackageCheck} label="Batches Logged" value={completedBatchesToday} />
+        <Stat icon={Truck} label="Open Deliveries" value={todayDeliveries} />
+        <Stat icon={Users} label="Employees" value={totalEmployees} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <Card className="lg:col-span-2">
-          <CardHeader><CardTitle className="text-base">Production Output (Recent Batches)</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Production Output by Batch</CardTitle></CardHeader>
           <CardContent className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={productionData}>
@@ -72,13 +80,15 @@ function Dashboard() {
                 <XAxis dataKey="name" fontSize={12} />
                 <YAxis fontSize={12} />
                 <Tooltip />
+                <Legend />
                 <Bar dataKey="output" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="waste" fill="var(--color-destructive)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle className="text-base">Inventory vs Minimum</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Raw Material vs Reorder</CardTitle></CardHeader>
           <CardContent className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={invData}>
@@ -87,7 +97,7 @@ function Dashboard() {
                 <YAxis fontSize={11} />
                 <Tooltip />
                 <Bar dataKey="qty" fill="var(--color-success)" />
-                <Bar dataKey="min" fill="var(--color-warning)" />
+                <Bar dataKey="reorder" fill="var(--color-warning)" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -124,6 +134,7 @@ function Dashboard() {
                 </li>
               ))}
             </ul>
+            <p className="mt-4 text-xs text-muted-foreground">FG units in stock (derived): <span className="font-medium text-foreground">{fgStock.toLocaleString()}</span></p>
           </CardContent>
         </Card>
       </div>

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { useStore, SOStatus } from "@/lib/spf-store";
+import { useStore, SOStatus, productStock } from "@/lib/spf-store";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -20,92 +20,125 @@ const flow: SOStatus[] = ["Pending", "Confirmed", "Packed", "Dispatched", "Deliv
 function Sales() {
   const { state, setState, addActivity } = useStore();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ clientId: "C-01", itemId: "I-FG-01", quantity: 100, deliveryDate: "" });
+  const [form, setForm] = useState({
+    CustomerID: "C-01", ProductID: "P-01", Quantity: 100, DeliveryDate: "",
+  });
 
-  const clientName = (id: string) => state.clients.find(c => c.id === id)?.name ?? id;
-  const itemName = (id: string) => state.inventory.find(i => i.id === id)?.name ?? id;
+  const customerName = (id: string) => state.customers.find((c) => c.CustomerID === id)?.Name ?? id;
+  const productName = (id: string) => state.products.find((p) => p.ProductID === id)?.Name ?? id;
+  const productPrice = (id: string) => state.products.find((p) => p.ProductID === id)?.UnitPrice ?? 0;
 
   const advance = (id: string) => {
-    const so = state.sos.find(s => s.id === id);
+    const so = state.salesOrders.find((s) => s.SalesOrderID === id);
     if (!so) return;
-    const idx = flow.indexOf(so.status);
+    const idx = flow.indexOf(so.Status);
     if (idx < 0 || idx >= flow.length - 1) return;
     const next = flow[idx + 1];
 
-    // dispatch reduces stock
     if (next === "Dispatched") {
-      const item = state.inventory.find(i => i.id === so.itemId);
-      if (!item || item.quantity < so.quantity) { toast.error("Not enough finished goods stock"); return; }
+      // verify stock for each line item
+      const lines = state.containedIn.filter((c) => c.SalesOrderID === id);
+      for (const ln of lines) {
+        if (productStock(state, ln.ProductID) < ln.Quantity) {
+          toast.error(`Not enough stock for ${productName(ln.ProductID)}`);
+          return;
+        }
+      }
       setState((s) => ({
         ...s,
-        sos: s.sos.map(x => x.id === id ? { ...x, status: next } : x),
-        inventory: s.inventory.map(i => i.id === so.itemId ? { ...i, quantity: i.quantity - so.quantity } : i),
-        deliveries: [...s.deliveries, { id: "D-" + (200 + s.deliveries.length + 1), salesOrderId: id, driver: "Unassigned", status: "Scheduled", issueNotes: "", date: so.deliveryDate }],
+        salesOrders: s.salesOrders.map((x) => x.SalesOrderID === id ? { ...x, Status: next } : x),
+        deliveries: [...s.deliveries, {
+          DeliveryID: "DL-" + (200 + s.deliveries.length + 1),
+          SalesOrderID: id,
+          DriverID: s.drivers[0]?.DriverID ?? "",
+          DispatchedDate: new Date().toISOString().slice(0, 10),
+          DeliveredDate: "",
+          DeliveryStatus: "Scheduled",
+          VeichlePlate: "TBD",
+        }],
       }));
-      addActivity(`SO ${id} dispatched — ${so.quantity} units, stock reduced`);
+      addActivity(`SO ${id} dispatched — stock deducted from finished goods`);
     } else {
-      setState((s) => ({ ...s, sos: s.sos.map(x => x.id === id ? { ...x, status: next } : x) }));
+      setState((s) => ({ ...s, salesOrders: s.salesOrders.map((x) => x.SalesOrderID === id ? { ...x, Status: next } : x) }));
       addActivity(`SO ${id} → ${next}`);
     }
     toast.success(`${id} → ${next}`);
   };
 
-  const assign = (id: string, batchId: string) => {
-    setState((s) => ({ ...s, sos: s.sos.map(x => x.id === id ? { ...x, assignedBatch: batchId } : x) }));
-    toast.success(`Assigned ${batchId} to ${id}`);
-  };
-
   const submit = () => {
-    if (!form.deliveryDate) { toast.error("Delivery date required"); return; }
-    const id = "SO-" + (300 + state.sos.length + 1);
-    setState((s) => ({ ...s, sos: [...s.sos, { id, ...form, status: "Pending" as SOStatus }] }));
-    addActivity(`SO ${id} placed for ${clientName(form.clientId)}`);
-    toast.success(`${id} created`);
+    if (!form.DeliveryDate) { toast.error("Delivery date required"); return; }
+    const id = "SO-" + (300 + state.salesOrders.length + 1);
+    const total = form.Quantity * productPrice(form.ProductID);
+    setState((s) => ({
+      ...s,
+      salesOrders: [...s.salesOrders, {
+        SalesOrderID: id, CustomerID: form.CustomerID, Status: "Pending",
+        TotalValueD: total, OrderDate: new Date().toISOString().slice(0, 10), DeliveryDate: form.DeliveryDate,
+      }],
+      containedIn: [...s.containedIn, { ProductID: form.ProductID, SalesOrderID: id, Quantity: Number(form.Quantity) }],
+    }));
+    addActivity(`SO ${id} placed for ${customerName(form.CustomerID)}`);
+    toast.success(`${id} created (Rs. ${total.toLocaleString()})`);
     setOpen(false);
   };
 
   return (
     <div>
-      <PageHeader title="Sales Orders" description="Customer orders and finished goods allocation" actions={
+      <PageHeader title="Sales Orders" description="Customer sales orders with finished-goods line items" actions={
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-1" /> New Sales Order</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Create Sales Order</DialogTitle></DialogHeader>
             <div className="grid grid-cols-2 gap-3 py-2">
-              <div className="col-span-2"><Label>Client</Label>
-                <Select value={form.clientId} onValueChange={(v) => setForm({ ...form, clientId: v })}>
+              <div className="col-span-2"><Label>Customer</Label>
+                <Select value={form.CustomerID} onValueChange={(v) => setForm({ ...form, CustomerID: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{state.clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>{state.customers.map((c) => <SelectItem key={c.CustomerID} value={c.CustomerID}>{c.Name} ({c.Type})</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="col-span-2"><Label>Product</Label>
-                <Select value={form.itemId} onValueChange={(v) => setForm({ ...form, itemId: v })}>
+                <Select value={form.ProductID} onValueChange={(v) => setForm({ ...form, ProductID: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{state.inventory.filter(i => i.category === "Finished Goods").map(i => <SelectItem key={i.id} value={i.id}>{i.name} (stock: {i.quantity})</SelectItem>)}</SelectContent>
+                  <SelectContent>{state.products.map((p) => <SelectItem key={p.ProductID} value={p.ProductID}>{p.Name} (stock: {productStock(state, p.ProductID)})</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label>Quantity</Label><Input type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} /></div>
-              <div><Label>Delivery Date</Label><Input type="date" value={form.deliveryDate} onChange={(e) => setForm({ ...form, deliveryDate: e.target.value })} /></div>
+              <div><Label>Quantity</Label><Input type="number" value={form.Quantity} onChange={(e) => setForm({ ...form, Quantity: Number(e.target.value) })} /></div>
+              <div><Label>Delivery Date</Label><Input type="date" value={form.DeliveryDate} onChange={(e) => setForm({ ...form, DeliveryDate: e.target.value })} /></div>
             </div>
-            {(() => {
-              const stock = state.inventory.find(i => i.id === form.itemId)?.quantity ?? 0;
-              return stock < form.quantity ? (
-                <div className="flex items-center gap-2 text-sm text-destructive">
-                  <AlertCircle className="h-4 w-4" /> Not enough stock ({stock} available)
-                </div>
-              ) : null;
-            })()}
+            {productStock(state, form.ProductID) < form.Quantity && (
+              <div className="flex items-center gap-2 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4" /> Not enough stock (available: {productStock(state, form.ProductID)})
+              </div>
+            )}
+            <p className="text-sm text-muted-foreground">Estimated total: <span className="font-medium text-foreground">Rs. {(form.Quantity * productPrice(form.ProductID)).toLocaleString()}</span></p>
             <DialogFooter><Button onClick={submit}>Create</Button></DialogFooter>
           </DialogContent>
         </Dialog>
       } />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {state.clients.map(c => (
-          <Card key={c.id}><CardHeader className="pb-2"><CardTitle className="text-base">{c.name}</CardTitle></CardHeader>
-            <CardContent className="text-sm text-muted-foreground">{c.address}</CardContent></Card>
-        ))}
-      </div>
+      <Card className="mb-6">
+        <CardHeader><CardTitle className="text-base">Customers</CardTitle></CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader><TableRow>
+              <TableHead>ID</TableHead><TableHead>Name</TableHead><TableHead>Type</TableHead>
+              <TableHead>Attribute</TableHead><TableHead>Payment Terms</TableHead><TableHead>Contact</TableHead>
+            </TableRow></TableHeader>
+            <TableBody>
+              {state.customers.map((c) => (
+                <TableRow key={c.CustomerID}>
+                  <TableCell className="font-mono text-xs">{c.CustomerID}</TableCell>
+                  <TableCell className="font-medium">{c.Name}</TableCell>
+                  <TableCell>{c.Type}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{c.Attribute}</TableCell>
+                  <TableCell>{c.PaymentTerms}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{c.ContactPhone}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle className="text-base">Sales Orders</CardTitle></CardHeader>
@@ -113,38 +146,35 @@ function Sales() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>SO</TableHead><TableHead>Client</TableHead><TableHead>Product</TableHead>
-                <TableHead className="text-right">Qty</TableHead><TableHead>Delivery</TableHead>
-                <TableHead>Assigned Batch</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Action</TableHead>
+                <TableHead>SO</TableHead><TableHead>Customer</TableHead><TableHead>Line Items</TableHead>
+                <TableHead>Order Date</TableHead><TableHead>Delivery</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead>Status</TableHead><TableHead className="text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {state.sos.map(o => {
-                const stock = state.inventory.find(i => i.id === o.itemId)?.quantity ?? 0;
-                const lowStock = stock < o.quantity && o.status !== "Delivered" && o.status !== "Dispatched";
+              {state.salesOrders.map((o) => {
+                const lines = state.containedIn.filter((c) => c.SalesOrderID === o.SalesOrderID);
+                const shortage = lines.some((ln) => productStock(state, ln.ProductID) < ln.Quantity)
+                  && o.Status !== "Dispatched" && o.Status !== "Delivered";
                 return (
-                  <TableRow key={o.id}>
-                    <TableCell className="font-medium">{o.id}</TableCell>
-                    <TableCell>{clientName(o.clientId)}</TableCell>
-                    <TableCell>
-                      {itemName(o.itemId)}
-                      {lowStock && <div className="text-xs text-destructive flex items-center gap-1 mt-0.5"><AlertCircle className="h-3 w-3" />Stock: {stock}</div>}
+                  <TableRow key={o.SalesOrderID}>
+                    <TableCell className="font-medium">{o.SalesOrderID}</TableCell>
+                    <TableCell>{customerName(o.CustomerID)}</TableCell>
+                    <TableCell className="text-sm">
+                      {lines.map((ln) => (
+                        <div key={ln.ProductID}>{ln.Quantity} × {productName(ln.ProductID)}</div>
+                      ))}
+                      {shortage && <div className="text-xs text-destructive flex items-center gap-1 mt-0.5"><AlertCircle className="h-3 w-3" /> Stock shortage</div>}
                     </TableCell>
-                    <TableCell className="text-right">{o.quantity}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{o.deliveryDate}</TableCell>
-                    <TableCell>
-                      <Select value={o.assignedBatch ?? ""} onValueChange={(v) => assign(o.id, v)}>
-                        <SelectTrigger className="h-8 w-32 text-xs"><SelectValue placeholder="Assign…" /></SelectTrigger>
-                        <SelectContent>
-                          {state.batches.filter(b => b.status === "Completed").map(b => <SelectItem key={b.id} value={b.id}>{b.id}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell><StatusBadge status={o.status} /></TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{o.OrderDate}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{o.DeliveryDate}</TableCell>
+                    <TableCell className="text-right">Rs. {o.TotalValueD.toLocaleString()}</TableCell>
+                    <TableCell><StatusBadge status={o.Status} /></TableCell>
                     <TableCell className="text-right">
-                      {o.status !== "Delivered" && o.status !== "Returned" && (
-                        <Button size="sm" variant="outline" onClick={() => advance(o.id)}>
-                          → {flow[flow.indexOf(o.status) + 1] ?? "Done"}
+                      {o.Status !== "Delivered" && o.Status !== "Returned" && (
+                        <Button size="sm" variant="outline" onClick={() => advance(o.SalesOrderID)}>
+                          → {flow[flow.indexOf(o.Status) + 1] ?? "Done"}
                         </Button>
                       )}
                     </TableCell>
