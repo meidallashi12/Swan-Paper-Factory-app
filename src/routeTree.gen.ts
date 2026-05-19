@@ -13,6 +13,7 @@ import { Route as SalesRouteImport } from './routes/sales'
 import { Route as ProductionRouteImport } from './routes/production'
 import { Route as ProcurementRouteImport } from './routes/procurement'
 import { Route as InventoryRouteImport } from './routes/inventory'
+import { Route as DeliveriesRouteImport } from './routes/deliveries'
 import { Route as IndexRouteImport } from './routes/index'
 
 const SalesRoute = SalesRouteImport.update({
@@ -35,6 +36,11 @@ const InventoryRoute = InventoryRouteImport.update({
   path: '/inventory',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DeliveriesRoute = DeliveriesRouteImport.update({
+  id: '/deliveries',
+  path: '/deliveries',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -43,6 +49,7 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/deliveries': typeof DeliveriesRoute
   '/inventory': typeof InventoryRoute
   '/procurement': typeof ProcurementRoute
   '/production': typeof ProductionRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/deliveries': typeof DeliveriesRoute
   '/inventory': typeof InventoryRoute
   '/procurement': typeof ProcurementRoute
   '/production': typeof ProductionRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/deliveries': typeof DeliveriesRoute
   '/inventory': typeof InventoryRoute
   '/procurement': typeof ProcurementRoute
   '/production': typeof ProductionRoute
@@ -65,12 +74,25 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/inventory' | '/procurement' | '/production' | '/sales'
+  fullPaths:
+    | '/'
+    | '/deliveries'
+    | '/inventory'
+    | '/procurement'
+    | '/production'
+    | '/sales'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/inventory' | '/procurement' | '/production' | '/sales'
+  to:
+    | '/'
+    | '/deliveries'
+    | '/inventory'
+    | '/procurement'
+    | '/production'
+    | '/sales'
   id:
     | '__root__'
     | '/'
+    | '/deliveries'
     | '/inventory'
     | '/procurement'
     | '/production'
@@ -79,6 +101,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DeliveriesRoute: typeof DeliveriesRoute
   InventoryRoute: typeof InventoryRoute
   ProcurementRoute: typeof ProcurementRoute
   ProductionRoute: typeof ProductionRoute
@@ -115,6 +138,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InventoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/deliveries': {
+      id: '/deliveries'
+      path: '/deliveries'
+      fullPath: '/deliveries'
+      preLoaderRoute: typeof DeliveriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -127,6 +157,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DeliveriesRoute: DeliveriesRoute,
   InventoryRoute: InventoryRoute,
   ProcurementRoute: ProcurementRoute,
   ProductionRoute: ProductionRoute,
