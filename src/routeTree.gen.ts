@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SalesRouteImport } from './routes/sales'
+import { Route as QualityRouteImport } from './routes/quality'
 import { Route as ProductionRouteImport } from './routes/production'
 import { Route as ProcurementRouteImport } from './routes/procurement'
 import { Route as MachinesRouteImport } from './routes/machines'
@@ -20,6 +21,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const SalesRoute = SalesRouteImport.update({
   id: '/sales',
   path: '/sales',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QualityRoute = QualityRouteImport.update({
+  id: '/quality',
+  path: '/quality',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProductionRoute = ProductionRouteImport.update({
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/machines': typeof MachinesRoute
   '/procurement': typeof ProcurementRoute
   '/production': typeof ProductionRoute
+  '/quality': typeof QualityRoute
   '/sales': typeof SalesRoute
 }
 export interface FileRoutesByTo {
@@ -69,6 +76,7 @@ export interface FileRoutesByTo {
   '/machines': typeof MachinesRoute
   '/procurement': typeof ProcurementRoute
   '/production': typeof ProductionRoute
+  '/quality': typeof QualityRoute
   '/sales': typeof SalesRoute
 }
 export interface FileRoutesById {
@@ -79,6 +87,7 @@ export interface FileRoutesById {
   '/machines': typeof MachinesRoute
   '/procurement': typeof ProcurementRoute
   '/production': typeof ProductionRoute
+  '/quality': typeof QualityRoute
   '/sales': typeof SalesRoute
 }
 export interface FileRouteTypes {
@@ -90,6 +99,7 @@ export interface FileRouteTypes {
     | '/machines'
     | '/procurement'
     | '/production'
+    | '/quality'
     | '/sales'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -99,6 +109,7 @@ export interface FileRouteTypes {
     | '/machines'
     | '/procurement'
     | '/production'
+    | '/quality'
     | '/sales'
   id:
     | '__root__'
@@ -108,6 +119,7 @@ export interface FileRouteTypes {
     | '/machines'
     | '/procurement'
     | '/production'
+    | '/quality'
     | '/sales'
   fileRoutesById: FileRoutesById
 }
@@ -118,6 +130,7 @@ export interface RootRouteChildren {
   MachinesRoute: typeof MachinesRoute
   ProcurementRoute: typeof ProcurementRoute
   ProductionRoute: typeof ProductionRoute
+  QualityRoute: typeof QualityRoute
   SalesRoute: typeof SalesRoute
 }
 
@@ -128,6 +141,13 @@ declare module '@tanstack/react-router' {
       path: '/sales'
       fullPath: '/sales'
       preLoaderRoute: typeof SalesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/quality': {
+      id: '/quality'
+      path: '/quality'
+      fullPath: '/quality'
+      preLoaderRoute: typeof QualityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/production': {
@@ -182,6 +202,7 @@ const rootRouteChildren: RootRouteChildren = {
   MachinesRoute: MachinesRoute,
   ProcurementRoute: ProcurementRoute,
   ProductionRoute: ProductionRoute,
+  QualityRoute: QualityRoute,
   SalesRoute: SalesRoute,
 }
 export const routeTree = rootRouteImport
